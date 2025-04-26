@@ -29,6 +29,9 @@ importers:
       date-fns:
         specifier: ^2.30.0
         version: 2.30.0
+      dotenv:
+        specifier: ^16.5.0
+        version: 16.5.0
       fs:
         specifier: 0.0.2
         version: 0.0.2
@@ -38,6 +41,9 @@ importers:
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
+      intl-parse-accept-language:
+        specifier: ^1.0.0
+        version: 1.0.0
       marked:
         specifier: ^14.1.1
         version: 14.1.4
@@ -56,6 +62,9 @@ importers:
       next-themes:
         specifier: ^0.4.4
         version: 0.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      pocketbase:
+        specifier: ^0.26.0
+        version: 0.26.0
       prism-react-renderer:
         specifier: ^2.3.1
         version: 2.4.1(react@18.3.1)
@@ -2714,6 +2723,10 @@ packages:
     resolution: {integrity: sha512-QM8q3zDe58hqUqjraQOmzZ1LIH9SWQJTlEKCH4kJ2oQvLZk7RbQXvtDM2XEq3fwkV9CCvvH4LA0AV+ogFsBM2Q==}
     engines: {node: '>=8'}
 
+  dotenv@16.5.0:
+    resolution: {integrity: sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg==}
+    engines: {node: '>=12'}
+
   dotgitignore@2.1.0:
     resolution: {integrity: sha512-sCm11ak2oY6DglEPpCB8TixLjWAxd3kJTs6UIcSasNYxXdFPV+YKlye92c8H4kKFqV5qYMIh7d+cYecEg0dIkA==}
     engines: {node: '>=6'}
@@ -3465,6 +3478,10 @@ packages:
   internmap@2.0.3:
     resolution: {integrity: sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg==}
     engines: {node: '>=12'}
+
+  intl-parse-accept-language@1.0.0:
+    resolution: {integrity: sha512-YFMSV91JNBOSjw1cOfw2tup6hDP7mkz+2AUV7W1L1AM6ntgI75qC1ZeFpjPGMrWp+upmBRTX2fJWQ8c7jsUWpA==}
+    engines: {node: '>=14'}
 
   is-alphabetical@2.0.1:
     resolution: {integrity: sha512-FWyyY60MeTNyeSRpkM2Iry0G9hpr7/9kD40mD/cGQEuilcZYS4okz8SN2Q6rLCJ8gbCt6fN+rC+6tMGS99LaxQ==}
@@ -4619,6 +4636,9 @@ packages:
     resolution: {integrity: sha512-G8rwsOQJ63XG6BbKj2w5rHeavFjy5zynBA9zsJMMtBoe/Uf757oG12NXz6e6OirF7RCrTVAKFXbLmn1RbL7Qaw==}
     engines: {node: '>=18'}
     hasBin: true
+
+  pocketbase@0.26.0:
+    resolution: {integrity: sha512-WBBeOgz4Jnrd7a1KEzSBUJqpTortKKCcp16j5KoF+4tNIyQHsmynj+qRSvS56/RVacVMbAqO8Qkfj3N84fpzEw==}
 
   points-on-curve@0.2.0:
     resolution: {integrity: sha512-0mYKnYYe9ZcqMCWhUjItv/oHjvgEsfKvnUTg8sAtnHr3GVy7rGkXCb6d5cSyqrWqL4k81b9CPg3urd+T7aop3A==}
@@ -9094,6 +9114,8 @@ snapshots:
     dependencies:
       is-obj: 2.0.0
 
+  dotenv@16.5.0: {}
+
   dotgitignore@2.1.0:
     dependencies:
       find-up: 3.0.0
@@ -10163,6 +10185,8 @@ snapshots:
   internmap@1.0.1: {}
 
   internmap@2.0.3: {}
+
+  intl-parse-accept-language@1.0.0: {}
 
   is-alphabetical@2.0.1: {}
 
@@ -11677,6 +11701,8 @@ snapshots:
       playwright-core: 1.50.1
     optionalDependencies:
       fsevents: 2.3.2
+
+  pocketbase@0.26.0: {}
 
   points-on-curve@0.2.0: {}
 
