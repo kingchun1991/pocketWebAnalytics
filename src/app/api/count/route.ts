@@ -14,7 +14,7 @@ const gif = Buffer.from([
   0x4c, 0x01, 0x00, 0x3b,
 ]);
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   await pb
     .collection('_superusers')
     .authWithPassword(
@@ -36,10 +36,7 @@ export async function GET(request: NextRequest) {
   }
 
   const params = Object.fromEntries(request.nextUrl.searchParams);
-  console.log('params', params);
   const siteCode = request.headers.get('host')?.split('.')[0] || '';
-  console.log(request.headers);
-  console.log('siteCode', siteCode);
 
   try {
     const site = await pb
