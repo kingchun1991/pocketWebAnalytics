@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { NextRequest, NextResponse } from 'next/server';
 import PocketBase from 'pocketbase';
 import { parseAcceptLanguage } from 'intl-parse-accept-language';
@@ -62,9 +64,50 @@ export async function POST(request: NextRequest) {
     }
 
     let location = '';
+    const country = '';
+    const region = '';
+    const country_name = '';
+    const region_name = '';
+    const iso_3166_2 = '';
+
     if (site.settings.collect?.includes('location')) {
-      // Note: PocketBase doesn't have built-in IP geolocation; use an external service or a simple lookup
-      location = 'US'; // Placeholder; implement actual IP lookup if needed
+      const clientIp =
+        request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+        request.ip ||
+        '';
+
+      // Extract geolocation data from headers (if available)
+      const country = request.headers.get('x-vercel-ip-country') || '';
+      const region = request.headers.get('x-vercel-ip-region') || '';
+      const country_name =
+        request.headers.get('x-vercel-ip-country-name') || '';
+      const region_name = request.headers.get('x-vercel-ip-region-name') || '';
+
+      // iso_3166_2: combine country and region with hyphen if region is present
+      const iso_3166_2 = region ? `${country}-${region}` : country;
+
+      // Check if location exists
+      let locRecord = null;
+      try {
+        locRecord = await pb
+          .collection('locations')
+          .getFirstListItem(`iso_3166_2="${iso_3166_2}"`);
+      } catch (e) {
+        // Not found, will insert
+      }
+
+      if (!locRecord) {
+        // Insert new location
+        await pb.collection('locations').create({
+          iso_3166_2,
+          country,
+          region,
+          country_name,
+          region_name,
+        });
+      }
+
+      location = iso_3166_2;
     }
 
     let language = '';
@@ -129,5 +172,7 @@ export async function POST(request: NextRequest) {
       status: 400,
       headers: { 'X-PocketWebAnalytics': `Error: ${errorMessage}` },
     });
+    {
+    }
   }
 }

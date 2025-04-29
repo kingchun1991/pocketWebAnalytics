@@ -35,5 +35,19 @@ export default async function index() {
     mdxSource: MDXRemoteSerializeResult;
   } = await getAbout();
 
-  return <AboutLayout post={metaInformation} mdxSource={mdxSource} />;
+  return (
+    <>
+      <AboutLayout post={metaInformation} mdxSource={mdxSource} />
+      <div
+        dangerouslySetInnerHTML={{
+          __html: `<script
+    data-pocketwebanalytics="https://pocketwebanalytics.vercel.app//api/count"
+    data-pocketwebanalytics-settings='{"allow_local": true}'
+    async
+    src="https://pocketwebanalytics.vercel.app//pocketWebAnalytics.js"
+></script>`,
+        }}
+      />
+    </>
+  );
 }
