@@ -5,6 +5,8 @@ import PocketBase from 'pocketbase';
 import { parseAcceptLanguage } from 'intl-parse-accept-language';
 import { userAgent } from 'next/server';
 
+export const runtime = 'edge';
+
 const pb = new PocketBase(
   process.env.POCKETBASE_URL || 'http://127.0.0.1:8090'
 );
