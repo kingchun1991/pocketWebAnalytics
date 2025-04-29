@@ -72,9 +72,7 @@ export async function POST(request: NextRequest) {
 
     if (site.settings.collect?.includes('location')) {
       const clientIp =
-        request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-        request.ip ||
-        '';
+        request.headers.get('x-forwarded-for')?.split(',')[0].trim() || '';
 
       // Extract geolocation data from headers (if available)
       const country = request.headers.get('x-vercel-ip-country') || '';
