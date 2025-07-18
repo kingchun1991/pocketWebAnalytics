@@ -57,6 +57,7 @@ export default function ProductSimple(props: any) {
             width={282}
             objectFit="cover"
             src={data.imgsrc}
+            alt={data.title || 'Card image'}
           />
         </Box>
         <Stack pt={10} align="center">

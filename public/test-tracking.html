@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PocketWebAnalytics Test Page</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      button {
+        background: #007cba;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 3px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background: #005a87;
+      }
+      .log {
+        background: #f5f5f5;
+        padding: 10px;
+        border-radius: 3px;
+        font-family: monospace;
+        margin-top: 10px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 PocketWebAnalytics Test Page</h1>
+
+    <div class="test-section">
+      <h2>1. Automatic Page View Tracking</h2>
+      <p>This page should automatically send a page view when loaded.</p>
+      <p>
+        <strong>Check:</strong> Network tab should show a request to
+        <code>/api/count</code>
+      </p>
+    </div>
+
+    <div class="test-section">
+      <h2>2. Manual Event Tracking</h2>
+      <p>Test manual event tracking with custom parameters:</p>
+      <button onclick="testManualTracking()">Send Custom Event</button>
+      <button onclick="testEventTracking()">Send Event with Event=true</button>
+      <button onclick="testLongPath()">Test Long Path</button>
+    </div>
+
+    <div class="test-section">
+      <h2>3. Element Click Tracking</h2>
+      <p>Test automatic click tracking on elements with data attributes:</p>
+      <button
+        data-pocketwebanalytics-click="/button-test"
+        data-pocketwebanalytics-title="Test Button Click"
+      >
+        Track This Click
+      </button>
+      <a
+        href="#"
+        data-pocketwebanalytics-click="/link-test"
+        data-pocketwebanalytics-title="Test Link Click"
+      >
+        Track This Link
+      </a>
+    </div>
+
+    <div class="test-section">
+      <h2>4. Debug Information</h2>
+      <button onclick="showDebugInfo()">Show PWA Debug Info</button>
+      <button onclick="clearLog()">Clear Log</button>
+      <div id="debug-log" class="log"></div>
+    </div>
+
+    <!-- Load the tracking script -->
+    <script
+      data-pocketwebanalytics="http://localhost:3000/api/count"
+      data-pocketwebanalytics-settings='{"allow_local": true}'
+      src="/pocketWebAnalytics.js"
+    ></script>
+
+    <script>
+      // Debug logging
+      function log(message) {
+        const logElement = document.getElementById('debug-log');
+        const timestamp = new Date().toLocaleTimeString();
+        logElement.textContent += `[${timestamp}] ${message}\n`;
+        console.log('PWA Test:', message);
+      }
+
+      function clearLog() {
+        document.getElementById('debug-log').textContent = '';
+      }
+
+      // Test functions
+      function testManualTracking() {
+        if (window.pocketWebAnalytics) {
+          log('Sending manual tracking event...');
+          window.pocketWebAnalytics.count({
+            path: '/manual-test-' + Date.now(),
+            title: 'Manual Test Event',
+            referrer: 'test-referrer',
+          });
+          log('Manual tracking event sent');
+        } else {
+          log('ERROR: pocketWebAnalytics not loaded');
+        }
+      }
+
+      function testEventTracking() {
+        if (window.pocketWebAnalytics) {
+          log('Sending event tracking...');
+          window.pocketWebAnalytics.count({
+            path: '/event-test-' + Date.now(),
+            title: 'Event Test',
+            event: true,
+          });
+          log('Event tracking sent');
+        } else {
+          log('ERROR: pocketWebAnalytics not loaded');
+        }
+      }
+
+      function testLongPath() {
+        if (window.pocketWebAnalytics) {
+          const longPath = '/test-long-path-' + 'a'.repeat(2100);
+          log('Sending long path test (should be rejected)...');
+          window.pocketWebAnalytics.count({
+            path: longPath,
+            title: 'Long Path Test',
+          });
+          log('Long path test sent');
+        } else {
+          log('ERROR: pocketWebAnalytics not loaded');
+        }
+      }
+
+      function showDebugInfo() {
+        if (window.pocketWebAnalytics) {
+          log('PocketWebAnalytics object:');
+          log('- filter(): ' + window.pocketWebAnalytics.filter());
+          log(
+            '- get_data(): ' +
+              JSON.stringify(window.pocketWebAnalytics.get_data(), null, 2)
+          );
+
+          const testUrl = window.pocketWebAnalytics.url({
+            path: '/debug-test',
+            title: 'Debug Test',
+          });
+          log('- test URL: ' + testUrl);
+        } else {
+          log('ERROR: pocketWebAnalytics not loaded');
+        }
+      }
+
+      // Page load event
+      window.addEventListener('load', function () {
+        log('Page loaded');
+        if (window.pocketWebAnalytics) {
+          log('PocketWebAnalytics loaded successfully');
+        } else {
+          log('ERROR: PocketWebAnalytics not loaded');
+        }
+      });
+
+      // Monitor network requests (if supported)
+      if ('PerformanceObserver' in window) {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.name.includes('/api/count')) {
+              log(
+                `Network request: ${entry.name} (${entry.duration.toFixed(2)}ms)`
+              );
+            }
+          }
+        });
+        observer.observe({ entryTypes: ['resource'] });
+      }
+    </script>
+  </body>
+</html>

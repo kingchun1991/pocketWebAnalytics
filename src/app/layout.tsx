@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 
 import { Provider } from '@/components/ui/provider';
+import { AuthProvider } from '@/lib/auth/AuthContext';
 import Layout from '@/lib/layout';
 import { siteConfig } from '@/site.config';
 
@@ -48,7 +49,9 @@ const RootLayout = ({ children }: RootLayoutProps) => {
     <html lang={siteConfig.language} suppressHydrationWarning>
       <body>
         <Provider>
-          <Layout>{children}</Layout>
+          <AuthProvider>
+            <Layout>{children}</Layout>
+          </AuthProvider>
         </Provider>
       </body>
     </html>

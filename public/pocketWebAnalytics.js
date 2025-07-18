@@ -33,6 +33,75 @@
 
   var enc = encodeURIComponent;
 
+  // Cookie utility functions for first visit detection
+  window.pocketWebAnalytics.setCookie = function (name, value, days) {
+    var expires = '';
+    if (days) {
+      var date = new Date();
+      date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+      expires = '; expires=' + date.toUTCString();
+    }
+    document.cookie =
+      name + '=' + (value || '') + expires + '; path=/; SameSite=Lax';
+  };
+
+  window.pocketWebAnalytics.getCookie = function (name) {
+    var nameEQ = name + '=';
+    var ca = document.cookie.split(';');
+    for (var i = 0; i < ca.length; i++) {
+      var c = ca[i];
+      while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+  };
+
+  // Generate or retrieve visitor ID for first visit tracking
+  window.pocketWebAnalytics.getVisitorId = function () {
+    var cookieName = '_pwa_visitor_id';
+    var visitorId = window.pocketWebAnalytics.getCookie(cookieName);
+
+    if (!visitorId) {
+      // Generate new visitor ID (simple random string)
+      visitorId =
+        'v' + Date.now().toString(36) + Math.random().toString(36).substr(2);
+      // Set cookie for 2 years
+      window.pocketWebAnalytics.setCookie(cookieName, visitorId, 730);
+    }
+
+    return visitorId;
+  };
+
+  // Check if this is a first visit
+  window.pocketWebAnalytics.isFirstVisit = function () {
+    var cookieName = '_pwa_first_visit';
+    var hasVisited = window.pocketWebAnalytics.getCookie(cookieName);
+
+    if (!hasVisited) {
+      // Mark as visited with a cookie that expires in 30 minutes (session-like)
+      window.pocketWebAnalytics.setCookie(cookieName, '1', 0.02); // 0.02 days = ~30 minutes
+      return true;
+    }
+
+    return false;
+  };
+
+  // Generate session ID for session tracking
+  window.pocketWebAnalytics.getSessionId = function () {
+    var cookieName = '_pwa_session_id';
+    var sessionId = window.pocketWebAnalytics.getCookie(cookieName);
+
+    if (!sessionId) {
+      // Generate new session ID
+      sessionId =
+        's' + Date.now().toString(36) + Math.random().toString(36).substr(2);
+      // Set cookie for 30 minutes
+      window.pocketWebAnalytics.setCookie(cookieName, sessionId, 0.02);
+    }
+
+    return sessionId;
+  };
+
   window.pocketWebAnalytics.get_data = function (vars) {
     vars = vars || {};
     var data = {
@@ -51,6 +120,10 @@
       ],
       b: is_bot(),
       q: location.search,
+      // Add first visit and session tracking
+      fv: window.pocketWebAnalytics.isFirstVisit() ? '1' : '0',
+      vid: window.pocketWebAnalytics.getVisitorId(),
+      sid: window.pocketWebAnalytics.getSessionId(),
     };
 
     var rcb, pcb, tcb;
