@@ -18,10 +18,6 @@ import {
 
 export const runtime = 'edge';
 
-const pb = new PocketBase(
-  process.env.POCKETBASE_URL || 'http://127.0.0.1:8090'
-);
-
 const gif = Buffer.from([
   0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x01, 0x00,
   0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x21, 0xf9, 0x04, 0x01, 0x0a, 0x00, 0x01,
@@ -34,6 +30,11 @@ async function handleCount(
   request: NextRequest,
   params: Record<string, string>
 ) {
+  // Create a fresh PocketBase instance for each request to avoid I/O reuse issues
+  const pb = new PocketBase(
+    process.env.POCKETBASE_URL || 'http://127.0.0.1:8090'
+  );
+
   await pb
     .collection('_superusers')
     .authWithPassword(
@@ -211,7 +212,6 @@ async function handleCount(
                 region,
                 country_name,
                 region_name,
-                city_name, // Optional: ensure your schema supports this
               });
             }
 
