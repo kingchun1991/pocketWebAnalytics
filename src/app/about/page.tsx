@@ -41,10 +41,9 @@ export default async function index() {
       <div
         dangerouslySetInnerHTML={{
           __html: `<script
-    data-pocketwebanalytics="https://pocketwebanalytics.vercel.app//api/count"
-    data-pocketwebanalytics-settings='{"allow_local": true}'
+    data-pocketwebanalytics="https://pocketwebanalytics.vercel.app/api/count"
     async
-    src="https://pocketwebanalytics.vercel.app//pocketWebAnalytics.js"
+    src="https://pocketwebanalytics.vercel.app/pocketWebAnalytics.js"
 ></script>`,
         }}
       />
