@@ -1,32 +1,28 @@
 export const siteConfig: SitesConfig = {
-  title: 'nextjs-chakra-starter-blog',
-  titleTemplate: '%s | nextjs-chakra-starter-blog',
-  description: 'Next.js + chakra-ui + TypeScript + MDX templat',
+  title: 'PocketWebAnalytics',
+  titleTemplate: '%s | PocketWebAnalytics',
+  description:
+    'Modern, production-ready web analytics platform built with Next.js 15, TypeScript, and Chakra UI v3',
   language: 'en',
-  url: 'https://nextjs-chakra-starter-blog.vercel.app',
-  repoUrl: 'https://github.com/kingchun1991/nextjs-chakra-starter-blog',
+  url: 'https://pocketwebanalytics.vercel.app',
+  repoUrl: 'https://github.com/kingchun1991/pocketWebAnalytics',
   repoBranch: 'main',
   donationUrl: 'https://opencollective.com/chakra-ui',
   navigation: [
     {
       title: 'Blog',
       url: '/blog',
-      // children: [
-      //   { title: 'Blog2', url: '/blog/blog2' },
-      //   {
-      //     title: 'Blog3',
-      //     url: '/antiepidemiczone/rat',
-      //   },
-      // ],
     },
     { title: 'Tags', url: '/tags' },
     { title: 'About', url: '/about' },
+    { title: 'Dashboard', url: '/dashboard' },
+    { title: 'Login', url: '/login' },
   ],
 };
 
 export const giscusConfig: GiscusConfig = {
-  repo: 'kingchun1991/nextjs-chakra-starter-blog',
-  repo_id: 'R_kgDOJ2sHHw',
+  repo: 'kingchun1991/pocketWebAnalytics',
+  repo_id: 'R_kgDOJ2sHHw', // You may need to update this with the correct repo ID for PocketWebAnalytics
 };
 
 interface GiscusConfig {
