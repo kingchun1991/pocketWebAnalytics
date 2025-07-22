@@ -34,6 +34,52 @@
 2. `pnpm` package manager installed
 3. [PocketBase Cloud](https://pocketbase.io/cloud) account
 
+## 🚨 **CRITICAL: Production Requires Cron Jobs**
+
+**⚠️ MANDATORY: PocketWebAnalytics requires scheduled data aggregation for production use.**
+
+Unlike GoatCounter which has built-in aggregation workers, PocketWebAnalytics uses external cron jobs for optimal performance and scalability.
+
+### **📊 Performance Comparison:**
+
+| Setup                 | Dashboard Load Time | Database Performance  | Production Ready |
+| --------------------- | ------------------- | --------------------- | ---------------- |
+| **Without Cron Jobs** | ❌ 3-10 seconds     | ❌ Degrades over time | ❌ No            |
+| **With Cron Jobs**    | ✅ < 1 second       | ✅ Optimal            | ✅ Yes           |
+
+### **� Cron Setup Options:**
+
+#### **Option 1: GitHub Actions (Recommended) 🌟**
+
+Perfect for Vercel, Netlify, and any deployment:
+
+```bash
+# 1. Add 2 secrets to GitHub repository:
+#    - SITE_URL (your deployed site)
+#    - AGGREGATION_API_KEY (for authentication)
+# 2. Push workflows to GitHub (already included)
+# 3. Done! Workflows call your /api/aggregation endpoint automatically
+```
+
+**✨ Benefits:** Fast API calls, no dependencies, built-in monitoring  
+**📋 See `GITHUB_ACTIONS_SETUP.md` for complete setup**
+
+#### **Option 2: Server Cron Jobs**
+
+For VPS and dedicated servers:
+
+```bash
+# 1. Test aggregation
+node scripts/scheduledAggregation.js incremental
+
+# 2. Install cron jobs
+crontab crontab.example
+```
+
+**📋 See `PRODUCTION_SETUP.md` and `CRON_SETUP.md` for server setup**
+
+---
+
 ## 🚀 Quick Start
 
 1. **Clone the repository**
@@ -72,6 +118,34 @@ NEXT_PUBLIC_SITE_URL=https://your-domain.com
 ```bash
 node scripts/pocketbaseTableCreation.js
 ```
+
+6. **⚠️ CRITICAL: Set up data aggregation cron jobs**
+
+**Choose your preferred method:**
+
+**GitHub Actions (Recommended):**
+
+```bash
+# 1. Add secrets to your GitHub repository:
+#    POCKETBASE_URL, POCKETBASE_ADMIN_EMAIL, POCKETBASE_ADMIN_PASSWORD
+# 2. Push code to GitHub (workflows are included)
+# 3. Enable Actions in repository settings
+```
+
+**Server Cron Jobs:**
+
+```bash
+# Create logs directory
+mkdir -p logs
+
+# Test aggregation manually first
+node scripts/scheduledAggregation.js incremental
+
+# Install cron jobs (see CRON_SETUP.md for detailed instructions)
+crontab crontab.example
+```
+
+**📋 See `GITHUB_ACTIONS_SETUP.md` or `CRON_SETUP.md` for complete instructions**
 
 6. **Start the development server**
 
@@ -295,6 +369,10 @@ Based on `scripts/pocketbaseTableCreation.js`, the main collections are:
 
 ## 🚀 Deployment
 
+### ⚠️ **CRITICAL: Production Cron Setup Required**
+
+**All deployment platforms require cron job setup for data aggregation.**
+
 ### Vercel (Recommended)
 
 1. **Connect your repository** to Vercel
@@ -303,6 +381,37 @@ Based on `scripts/pocketbaseTableCreation.js`, the main collections are:
    - `POCKETBASE_ADMIN_EMAIL`
    - `POCKETBASE_ADMIN_PASSWORD`
 3. **Deploy** - automatic deployment on git push
+4. **✅ Set up GitHub Actions cron** (Recommended):
+   - Add the same environment variables as **GitHub Secrets**
+   - GitHub Actions will handle aggregation automatically
+   - See `GITHUB_ACTIONS_SETUP.md` for detailed instructions
+
+**Alternative**: External cron service
+
+- Use cron-job.org, EasyCron, or similar
+- Call `/api/aggregation` endpoint hourly
+- Requires `AGGREGATION_API_KEY` environment variable
+
+### VPS/Dedicated Server
+
+```bash
+# 1. Deploy your application
+git clone [repository]
+cd pocketWebAnalytics
+npm install
+npm run build
+
+# 2. Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your credentials
+
+# 3. CRITICAL: Set up cron jobs
+mkdir -p logs
+crontab crontab.example
+
+# 4. Start application
+npm start
+```
 
 ### Environment Variables
 
@@ -325,7 +434,17 @@ NEXT_PUBLIC_ANALYTICS_ID=your-site-id
 pnpm build
 ```
 
-2. **Start the production server**:
+2. **⚠️ Set up cron jobs** (See `CRON_SETUP.md`):
+
+```bash
+# Test aggregation
+node scripts/scheduledAggregation.js incremental
+
+# Install cron jobs
+crontab crontab.example
+```
+
+3. **Start the production server**:
 
 ```bash
 pnpm start

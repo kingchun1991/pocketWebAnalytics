@@ -1,0 +1,88 @@
+name: 🌅 Daily Statistics Aggregation
+
+on:
+  schedule:
+    # Run daily at 1:05 AM UTC
+    - cron: '5 1 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  daily-stats:
+    name: 📊 Generate Daily Statistics
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: � Call Daily Aggregation API
+        env:
+          AGGREGATION_API_KEY: ${{ secrets.AGGREGATION_API_KEY }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          echo "🌅 Starting daily statistics aggregation at $(date -u)"
+          echo "📡 Calling aggregation API for daily processing..."
+
+          # Call the aggregation API endpoint for daily processing
+          response=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.SITE_URL }}/api/aggregation" \
+            -H "Authorization: Bearer ${{ secrets.AGGREGATION_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"type": "daily"}' \
+            -H "User-Agent: GitHub-Actions-Daily/1.0")
+
+          # Extract response body and status code
+          http_code=$(echo "$response" | tail -n1)
+          response_body=$(echo "$response" | sed '$d')
+
+          echo "📊 API Response (HTTP $http_code):"
+          echo "$response_body" | jq . 2>/dev/null || echo "$response_body"
+
+          # Check if successful
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Daily aggregation completed successfully at $(date -u)"
+            
+            # Extract metrics from response
+            hits_processed=$(echo "$response_body" | jq -r '.hits_processed // "N/A"' 2>/dev/null || echo "N/A")
+            count=$(echo "$response_body" | jq -r '.count // "N/A"' 2>/dev/null || echo "N/A")
+            
+            echo "📈 Processed $hits_processed hits into $count daily statistics"
+          else
+            echo "❌ Daily aggregation failed with HTTP $http_code"
+            echo "Response: $response_body"
+            exit 1
+          fi
+
+      - name: 📈 Verify Daily Stats
+        env:
+          AGGREGATION_API_KEY: ${{ secrets.AGGREGATION_API_KEY }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          echo "🔍 Checking daily stats creation..."
+
+          # Simple health check of the stats endpoint
+          response=$(curl -s -w "\n%{http_code}" -X GET "${{ secrets.SITE_URL }}/api/stats?period=day&limit=5")
+          http_code=$(echo "$response" | tail -n1)
+          response_body=$(echo "$response" | sed '$d')
+
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Daily stats endpoint responding correctly"
+            
+            # Check if we have data
+            total_hits=$(echo "$response_body" | jq -r '.summary.totalHits // 0' 2>/dev/null || echo "0")
+            echo "📊 Total hits in recent daily stats: $total_hits"
+          else
+            echo "⚠️ Stats endpoint returned HTTP $http_code"
+            echo "Response: $response_body"
+          fi
+
+      - name: 🎯 Daily Report
+        if: always()
+        run: |
+          echo "📋 Daily Aggregation Report"
+          echo "==========================="
+          echo "📅 Date: $(date -u '+%Y-%m-%d')"
+          echo "⏰ Run time: $(date -u '+%H:%M:%S UTC')"
+          echo "🔄 Status: ${{ job.status }}"
+          echo "🎯 Next daily run: $(date -u -d 'tomorrow 01:05' '+%Y-%m-%d %H:%M:%S UTC')"
+          echo ""
+          echo "💡 Tips:"
+          echo "- Check dashboard performance after aggregation"
+          echo "- Daily stats help with long-term trend analysis"
+          echo "- Monitor aggregation logs for any issues"
