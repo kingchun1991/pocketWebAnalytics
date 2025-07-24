@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: � Call Daily Aggregation API
+      - name: 🌅 Call Daily Aggregation API
         env:
           AGGREGATION_API_KEY: ${{ secrets.AGGREGATION_API_KEY }}
           SITE_URL: ${{ secrets.SITE_URL }}
@@ -20,8 +20,12 @@ jobs:
           echo "🌅 Starting daily statistics aggregation at $(date -u)"
           echo "📡 Calling aggregation API for daily processing..."
 
-          # Simple fix: remove trailing slash and follow redirects
+          # Clean URL and follow redirects to prevent HTTP 308 errors
           CLEAN_URL=$(echo "${{ secrets.SITE_URL }}" | sed 's|/$||')
+          
+          # Debug output
+          echo "🔍 Original URL: ${{ secrets.SITE_URL }}"
+          echo "🧹 Cleaned URL: $CLEAN_URL"
 
           # Call the aggregation API endpoint for daily processing
           response=$(curl -s -w "\n%{http_code}" -L -X POST "$CLEAN_URL/api/aggregation" \
@@ -33,6 +37,11 @@ jobs:
           # Extract response body and status code
           http_code=$(echo "$response" | tail -n1)
           response_body=$(echo "$response" | sed '$d')
+          
+          # Check for redirects
+          if [ "$http_code" -eq 308 ] || [ "$http_code" -eq 301 ] || [ "$http_code" -eq 302 ]; then
+            echo "⚠️  Redirect detected (HTTP $http_code). Check SITE_URL configuration."
+          fi
 
           echo "📊 API Response (HTTP $http_code):"
           echo "$response_body" | jq . 2>/dev/null || echo "$response_body"
@@ -52,15 +61,18 @@ jobs:
             exit 1
           fi
 
-      - name: 📈 Verify Daily Stats
+      - name: �� Verify Daily Stats
         env:
           AGGREGATION_API_KEY: ${{ secrets.AGGREGATION_API_KEY }}
           SITE_URL: ${{ secrets.SITE_URL }}
         run: |
           echo "🔍 Checking daily stats creation..."
 
+          # Clean URL for verification too
+          CLEAN_URL=$(echo "${{ secrets.SITE_URL }}" | sed 's|/$||')
+
           # Simple health check of the stats endpoint
-          response=$(curl -s -w "\n%{http_code}" -X GET "${{ secrets.SITE_URL }}/api/stats?period=day&limit=5")
+          response=$(curl -s -w "\n%{http_code}" -L -X GET "$CLEAN_URL/api/stats?period=day&limit=5")
           http_code=$(echo "$response" | tail -n1)
           response_body=$(echo "$response" | sed '$d')
 
@@ -78,7 +90,7 @@ jobs:
       - name: 🎯 Daily Report
         if: always()
         run: |
-          echo "📋 Daily Aggregation Report"
+          echo "📋 Daily Aggregation Report" 
           echo "==========================="
           echo "📅 Date: $(date -u '+%Y-%m-%d')"
           echo "⏰ Run time: $(date -u '+%H:%M:%S UTC')"
