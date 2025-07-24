@@ -20,8 +20,11 @@ jobs:
           echo "🌅 Starting daily statistics aggregation at $(date -u)"
           echo "📡 Calling aggregation API for daily processing..."
 
+          # Simple fix: remove trailing slash and follow redirects
+          CLEAN_URL=$(echo "${{ secrets.SITE_URL }}" | sed 's|/$||')
+
           # Call the aggregation API endpoint for daily processing
-          response=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.SITE_URL }}/api/aggregation" \
+          response=$(curl -s -w "\n%{http_code}" -L -X POST "$CLEAN_URL/api/aggregation" \
             -H "Authorization: Bearer ${{ secrets.AGGREGATION_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{"type": "daily"}' \

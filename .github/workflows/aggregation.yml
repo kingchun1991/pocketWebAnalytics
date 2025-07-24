@@ -9,7 +9,7 @@ on:
       force_run:
         description: 'Force run aggregation'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 env:
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: � Call Aggregation API
+      - name: 🌐 Call Aggregation API
         env:
           AGGREGATION_API_KEY: ${{ secrets.AGGREGATION_API_KEY }}
           SITE_URL: ${{ secrets.SITE_URL }}
@@ -29,8 +29,11 @@ jobs:
           echo "🚀 Starting hourly aggregation at $(date -u)"
           echo "📡 Calling aggregation API endpoint..."
 
+          # Simple fix: remove trailing slash and follow redirects
+          CLEAN_URL=$(echo "${{ secrets.SITE_URL }}" | sed 's|/$||')
+
           # Call the aggregation API endpoint
-          response=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.SITE_URL }}/api/aggregation" \
+          response=$(curl -s -w "\n%{http_code}" -L -X POST "$CLEAN_URL/api/aggregation" \
             -H "Authorization: Bearer ${{ secrets.AGGREGATION_API_KEY }}" \
             -H "Content-Type: application/json" \
             -H "User-Agent: GitHub-Actions-Cron/1.0")
@@ -57,7 +60,7 @@ jobs:
             exit 1
           fi
 
-      - name: � Verify Setup (on failure)
+      - name: 🔧 Verify Setup (on failure)
         if: failure()
         run: |
           echo "⚠️ Aggregation failed, checking configuration..."
@@ -77,7 +80,7 @@ jobs:
     if: always()
 
     steps:
-      - name: � Dashboard Performance Check
+      - name: 🔍 Dashboard Performance Check
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
         run: |
