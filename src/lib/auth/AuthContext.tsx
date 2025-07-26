@@ -7,11 +7,12 @@ import React, {
   useEffect,
   ReactNode,
 } from 'react';
+import { canAccessMultipleSites } from '../site-utils';
 
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'editor' | 'viewer';
+  role: 'admin' | 'editor' | 'viewer' | 'support';
   site_id: string;
   permissions: {
     analytics: { read: boolean; write: boolean; delete: boolean };
@@ -21,18 +22,31 @@ export interface User {
   last_login?: string;
 }
 
+export interface Site {
+  id: string;
+  code: string;
+  cname?: string;
+  link_domain?: string;
+  settings: Record<string, unknown>;
+  state: 'a' | 'd';
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  currentSite: Site | null;
+  availableSites: Site[];
   login: (credentials: { email: string; password: string }) => Promise<void>;
   register: (data: {
     email: string;
     password: string;
     passwordConfirm: string;
-    site_id: string;
-    role: string;
+    accountName: string;
+    siteDomain?: string;
+    role?: string;
   }) => Promise<void>;
   logout: () => void;
+  switchSite: (siteId: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
@@ -54,6 +68,8 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [currentSite, setCurrentSite] = useState<Site | null>(null);
+  const [availableSites, setAvailableSites] = useState<Site[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -146,8 +162,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     email: string;
     password: string;
     passwordConfirm: string;
-    site_id: string;
-    role: string;
+    accountName: string;
+    siteDomain?: string;
+    role?: string;
   }) => {
     try {
       setIsLoading(true);
@@ -180,10 +197,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const switchSite = async (siteId: string) => {
+    if (!user || !canAccessMultipleSites(user.role)) {
+      setError('You do not have permission to switch sites');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch site information
+      const response = await fetch(`/api/sites/${siteId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to switch site');
+      }
+
+      const site = await response.json();
+      setCurrentSite(site);
+      localStorage.setItem('current_site_id', siteId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to switch site');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
+    setCurrentSite(null);
+    setAvailableSites([]);
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('current_site_id');
 
     // Call logout endpoint
     fetch('/api/auth', {
@@ -200,9 +251,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextType = {
     user,
     token,
+    currentSite,
+    availableSites,
     login,
     register,
     logout,
+    switchSite,
     isLoading,
     error,
   };

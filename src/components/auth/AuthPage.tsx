@@ -12,32 +12,10 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 
-interface Site {
-  id: string;
-  name: string;
-}
-
 export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [sites, setSites] = useState<Site[]>([]);
   const { login, register, isLoading, error, user } = useAuth();
   const router = useRouter();
-
-  // Fetch available sites for registration
-  useEffect(() => {
-    const fetchSites = async () => {
-      try {
-        // For now, we'll use a mock site. In a real app, you'd fetch from an API
-        setSites([{ id: '7lv4b9y96vd1pb0', name: 'Default Site' }]);
-      } catch (err) {
-        console.error('Failed to fetch sites:', err);
-      }
-    };
-
-    if (!isLogin) {
-      fetchSites();
-    }
-  }, [isLogin]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -94,7 +72,6 @@ export const AuthPage: React.FC = () => {
             onRegister={register}
             isLoading={isLoading}
             error={error || undefined}
-            sites={sites}
           />
         )}
 

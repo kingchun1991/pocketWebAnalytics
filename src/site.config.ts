@@ -16,7 +16,6 @@ export const siteConfig: SitesConfig = {
     { title: 'Tags', url: '/tags' },
     { title: 'About', url: '/about' },
     { title: 'Dashboard', url: '/dashboard' },
-    { title: 'Login', url: '/login' },
   ],
 };
 

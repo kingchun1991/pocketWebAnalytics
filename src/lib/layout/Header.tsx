@@ -9,14 +9,20 @@ import {
   Icon,
   Link,
   useDisclosure,
+  Button,
+  HStack,
+  Badge,
 } from '@chakra-ui/react';
 import NextLink from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   LuGithub,
   LuMenu,
   LuX,
   LuChevronDown,
   LuChevronRight,
+  LuUser,
+  LuLogOut,
 } from 'react-icons/lu';
 
 import { ColorModeButton } from '@/components/ui/color-mode';
@@ -26,10 +32,63 @@ import {
   HoverCardRoot,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
+import { useAuth } from '@/lib/auth/AuthContext';
 import type { NavItem } from '@/site.config';
 import { siteConfig } from '@/site.config';
 
 import SearchModal from './SearchModal';
+
+// Auth-aware user menu component
+const UserMenu = () => {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
+  if (!user) {
+    return (
+      <Link as={NextLink} href="/login">
+        <Button size="sm" colorScheme="blue" variant="outline">
+          <HStack gap={1}>
+            <LuUser />
+            <Text>Login</Text>
+          </HStack>
+        </Button>
+      </Link>
+    );
+  }
+
+  return (
+    <HStack gap={2}>
+      <Flex
+        direction="column"
+        alignItems="end"
+        display={{ base: 'none', md: 'flex' }}
+      >
+        <Text fontSize="xs" color="gray.600" _dark={{ color: 'gray.400' }}>
+          {user.email}
+        </Text>
+        <Badge colorScheme="blue" size="sm">
+          {user.role}
+        </Badge>
+      </Flex>
+      <Button
+        size="sm"
+        colorScheme="red"
+        variant="outline"
+        onClick={handleLogout}
+      >
+        <HStack gap={1}>
+          <LuLogOut />
+          <Text display={{ base: 'none', md: 'block' }}>Logout</Text>
+        </HStack>
+      </Button>
+    </HStack>
+  );
+};
 
 const LogoIcon = ({ size = 40 }: { size?: number }) => (
   <svg
@@ -225,8 +284,71 @@ const MobileNavItem = ({ title, url, children }: NavItem) => {
 };
 
 const MobileNav = () => {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
   return (
     <Stack bg="white" _dark={{ bg: 'gray.800' }} p={4} display={{ md: 'none' }}>
+      {/* Auth section for mobile */}
+      {user ? (
+        <Box
+          pb={4}
+          borderBottom="1px"
+          borderColor="gray.200"
+          _dark={{ borderColor: 'gray.600' }}
+        >
+          <Flex justify="space-between" align="center" mb={2}>
+            <Box>
+              <Text
+                fontSize="sm"
+                fontWeight="medium"
+                color="gray.900"
+                _dark={{ color: 'white' }}
+              >
+                {user.email}
+              </Text>
+              <Badge colorScheme="blue" size="sm" mt={1}>
+                {user.role}
+              </Badge>
+            </Box>
+          </Flex>
+          <Button
+            size="sm"
+            colorScheme="red"
+            variant="outline"
+            onClick={handleLogout}
+            width="full"
+          >
+            <HStack gap={1}>
+              <LuLogOut />
+              <Text>Logout</Text>
+            </HStack>
+          </Button>
+        </Box>
+      ) : (
+        <Box
+          pb={4}
+          borderBottom="1px"
+          borderColor="gray.200"
+          _dark={{ borderColor: 'gray.600' }}
+        >
+          <Link as={NextLink} href="/login">
+            <Button size="sm" colorScheme="blue" variant="outline" width="full">
+              <HStack gap={1}>
+                <LuUser />
+                <Text>Login</Text>
+              </HStack>
+            </Button>
+          </Link>
+        </Box>
+      )}
+
+      {/* Navigation items */}
       {siteConfig.navigation.map((navItem) => (
         <MobileNavItem key={navItem.title} {...navItem} />
       ))}
@@ -285,6 +407,7 @@ const Header = () => {
           align="center"
         >
           <SearchModal />
+          <UserMenu />
           <ColorModeButton />
           <Link
             href={siteConfig.repoUrl}

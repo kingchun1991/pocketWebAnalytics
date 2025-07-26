@@ -9,10 +9,12 @@ import {
   Spinner,
   Badge,
   Button,
-  HStack,
 } from '@chakra-ui/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import DashboardMetrics from './DashboardMetrics';
+import { SiteSelector } from './SiteSelector';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { canAccessMultipleSites } from '@/lib/site-utils';
 
 interface BrowserData {
   browser: string;
@@ -75,74 +77,122 @@ const DataCard = ({
   </Box>
 );
 
-export default function DashboardOverview({ siteId = 1 }: { siteId?: number }) {
+export default function DashboardOverview({
+  siteId,
+}: {
+  siteId?: number | string;
+}) {
+  const { user, token } = useAuth();
+  const [selectedSiteId, setSelectedSiteId] = useState<string>('');
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-  const [useAggregation, setUseAggregation] = useState(true);
-  const [isRealtime, setIsRealtime] = useState(false);
+  const [timeRange, setTimeRange] = useState('week');
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const hasInitializedSiteRef = useRef(false);
 
-  // Prevent hydration mismatch
+  // Initialize selectedSiteId only once when user/siteId is available
   useEffect(() => {
-    setMounted(true);
+    if (!hasInitializedSiteRef.current && (user || siteId)) {
+      const initialSiteId = siteId ? siteId.toString() : user?.site_id || '1';
+      setSelectedSiteId(initialSiteId);
+      hasInitializedSiteRef.current = true;
+    }
+  }, [user, siteId]);
+
+  // Check if user can select multiple sites
+  const canSelectSites = user ? canAccessMultipleSites(user.role) : false;
+
+  // Handle site selection change
+  const handleSiteChange = useCallback((newSiteId: string) => {
+    setSelectedSiteId(newSiteId);
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-
-    async function fetchDashboardData() {
+  const fetchData = useCallback(
+    async (currentSiteId: string) => {
       try {
-        setLoading(true);
-        const params = new URLSearchParams({
-          site_id: siteId.toString(),
-          period: 'week',
-          expand: 'path,ref,browser,system',
-          limit: '10',
-          useAggregation: useAggregation.toString(),
-          realtime: isRealtime.toString(),
-        });
-
-        const response = await fetch(`/api/stats?${params.toString()}`);
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch dashboard data');
+        // Cancel previous request if it exists
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
         }
 
-        const dashboardData = await response.json();
-        setData(dashboardData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        // Create new abort controller for this request
+        const newAbortController = new AbortController();
+        abortControllerRef.current = newAbortController;
+
+        setLoading(true);
+        setError(null);
+
+        const params = new URLSearchParams({
+          site: currentSiteId,
+          period: timeRange,
+          realtime: 'true',
+          limit: '1000',
+        });
+
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+
+        // Add authorization header if user is logged in
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`/api/stats?${params}`, {
+          headers,
+          signal: newAbortController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch data: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        setData(result);
+        abortControllerRef.current = null; // Clear controller on success
+      } catch (err: unknown) {
+        console.error('Dashboard data fetch error:', err);
+
+        // Don't show error for cancelled requests
+        const error = err as Error;
+        if (error.name === 'AbortError') {
+          console.log('Request was cancelled');
+          return;
+        }
+
+        setError(
+          error instanceof Error ? error.message : 'Failed to load data'
+        );
+        abortControllerRef.current = null; // Clear controller on error
       } finally {
         setLoading(false);
       }
+    },
+    [timeRange, token] // Removed abortController from dependencies
+  );
+
+  useEffect(() => {
+    if (selectedSiteId) {
+      fetchData(selectedSiteId);
     }
+  }, [selectedSiteId, fetchData]);
 
-    fetchDashboardData();
-
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, [siteId, mounted, useAggregation, isRealtime]);
-
-  // Don't render anything until component is mounted on client
-  if (!mounted) {
-    return (
-      <Container maxW="7xl" py={8}>
-        <Flex justifyContent="center" alignItems="center" minH="200px">
-          <Spinner size="lg" />
-          <Text ml={3}>Loading dashboard...</Text>
-        </Flex>
-      </Container>
-    );
-  }
+  // Cleanup: abort any pending requests on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []); // Empty dependency array since we're using ref
 
   if (loading) {
     return (
-      <Container maxW="7xl" py={8}>
-        <Flex justifyContent="center" alignItems="center" minH="200px">
-          <Spinner size="lg" />
-          <Text ml={3}>Loading dashboard...</Text>
+      <Container maxW="container.xl" py={8}>
+        <Flex justify="center" align="center" minH="300px">
+          <Spinner size="xl" />
+          <Text ml={4}>Loading analytics data...</Text>
         </Flex>
       </Container>
     );
@@ -150,12 +200,29 @@ export default function DashboardOverview({ siteId = 1 }: { siteId?: number }) {
 
   if (error) {
     return (
-      <Container maxW="7xl" py={8}>
-        <Box textAlign="center" color="red.500">
-          <Text fontSize="lg" fontWeight="bold">
-            Error
+      <Container maxW="container.xl" py={8}>
+        <Box
+          p={6}
+          bg="red.50"
+          borderRadius="lg"
+          border="1px"
+          borderColor="red.200"
+        >
+          <Text color="red.600" fontWeight="medium">
+            Error loading dashboard data
           </Text>
-          <Text>{error}</Text>
+          <Text color="red.500" fontSize="sm" mt={1}>
+            {error}
+          </Text>
+          <Button
+            mt={4}
+            colorScheme="red"
+            variant="outline"
+            size="sm"
+            onClick={() => fetchData(selectedSiteId)}
+          >
+            Retry
+          </Button>
         </Box>
       </Container>
     );
@@ -163,58 +230,77 @@ export default function DashboardOverview({ siteId = 1 }: { siteId?: number }) {
 
   if (!data) {
     return (
-      <Container maxW="7xl" py={8}>
-        <Box textAlign="center" color="gray.500">
-          <Text fontSize="lg">No data available</Text>
-        </Box>
+      <Container maxW="container.xl" py={8}>
+        <Text>No data available</Text>
       </Container>
     );
   }
 
-  const { summary } = data;
-  const topPages = data.topPages || [];
-  const topReferrers = data.topReferrers || [];
-  const topBrowsers = data.topBrowsers || [];
-  const topSystems = data.topSystems || [];
+  // Extract data safely
+  const {
+    summary = {
+      totalHits: 0,
+      uniqueVisitors: 0,
+      sessions: 0,
+      firstVisits: 0,
+      bounceRate: '0%',
+    },
+    topPages = [],
+    topReferrers = [],
+    topBrowsers = [],
+    topSystems = [],
+    metadata = {
+      period: timeRange,
+      dataSource: 'realtime',
+      sampleSize: 0,
+    },
+  } = data;
 
   return (
-    <Container maxW="7xl" py={8}>
-      {/* Control Panel */}
-      <Flex justify="space-between" align="center" mb={6} wrap="wrap">
-        <Text fontSize="2xl" fontWeight="bold">
-          Analytics Dashboard
-        </Text>
-        <HStack gap={4}>
-          <Button
-            size="sm"
-            variant={isRealtime ? 'solid' : 'outline'}
-            colorScheme="blue"
-            onClick={() => setIsRealtime(!isRealtime)}
+    <Container maxW="container.xl" py={8}>
+      {/* Header with Site Selector and Controls */}
+      <Flex justify="space-between" align="center" mb={8}>
+        <Box>
+          <Text
+            fontSize="2xl"
+            fontWeight="bold"
+            color="gray.900"
+            _dark={{ color: 'white' }}
           >
-            {isRealtime ? 'Real-time' : 'Historical'}
-          </Button>
-          <Button
-            size="sm"
-            variant={useAggregation ? 'solid' : 'outline'}
-            colorScheme="green"
-            onClick={() => setUseAggregation(!useAggregation)}
-          >
-            {useAggregation ? 'Fast Mode' : 'Detailed Mode'}
-          </Button>
-          <Badge
-            colorScheme={
-              data?.metadata?.dataSource === 'aggregated' ? 'green' : 'blue'
-            }
-          >
-            {data?.metadata?.dataSource === 'aggregated'
-              ? 'Aggregated'
-              : 'Real-time'}{' '}
-            Data
-          </Badge>
-        </HStack>
+            Analytics Dashboard
+          </Text>
+          <Text fontSize="sm" color="gray.500" mt={1}>
+            Period: {metadata.period} • Data source: {metadata.dataSource}
+            {metadata.sampleSize > 0 &&
+              ` • Sample: ${metadata.sampleSize} records`}
+          </Text>
+        </Box>
+
+        {/* Site Selector - only show for admin/support */}
+        {canSelectSites && (
+          <SiteSelector
+            currentSiteId={selectedSiteId}
+            onSiteChange={handleSiteChange}
+          />
+        )}
       </Flex>
 
-      {/* Overview Stats */}
+      {/* Time Range Controls */}
+      <Flex mb={6} gap={2}>
+        {['day', 'week', 'month'].map((range) => (
+          <Button
+            key={range}
+            size="sm"
+            variant={timeRange === range ? 'solid' : 'outline'}
+            colorScheme="blue"
+            onClick={() => setTimeRange(range)}
+          >
+            {range.charAt(0).toUpperCase() + range.slice(1)}
+          </Button>
+        ))}
+      </Flex>
+
+      {/* Main Metrics */}
       <DashboardMetrics
         summary={{
           totalHits: summary.totalHits || 0,
@@ -286,19 +372,18 @@ export default function DashboardOverview({ siteId = 1 }: { siteId?: number }) {
                   _dark={{ borderColor: 'gray.600' }}
                 >
                   <Flex justifyContent="space-between" alignItems="center">
-                    <Box flex={1} minW={0}>
-                      <Text
-                        fontWeight="medium"
-                        fontSize="sm"
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        whiteSpace="nowrap"
-                        color="gray.900"
-                        _dark={{ color: 'white' }}
-                      >
-                        {referrer.referrer || 'Direct'}
-                      </Text>
-                    </Box>
+                    <Text
+                      fontWeight="medium"
+                      fontSize="sm"
+                      color="gray.900"
+                      _dark={{ color: 'white' }}
+                      flex={1}
+                      overflow="hidden"
+                      textOverflow="ellipsis"
+                      whiteSpace="nowrap"
+                    >
+                      {referrer.referrer || 'Direct'}
+                    </Text>
                     <Box textAlign="right" ml={4}>
                       <Text fontWeight="bold" fontSize="sm">
                         {referrer.hits}

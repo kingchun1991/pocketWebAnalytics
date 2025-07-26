@@ -87,9 +87,9 @@ async function handleLogin(data: { email: string; password: string }) {
       user: {
         id: user.id,
         email: user.email,
-        role: user.access?.role || 'viewer',
+        role: user.access?.role || user.role || 'viewer', // Handle both old and new format
         site_id: user.site_id,
-        permissions: user.settings?.permissions || {},
+        permissions: user.settings?.permissions || user.permissions || {},
         last_login: user.login_at,
       },
       token: sessionToken,
@@ -107,17 +107,25 @@ async function handleRegister(data: {
   email: string;
   password: string;
   passwordConfirm: string;
-  site_id: string;
+  accountName: string;
+  siteDomain?: string;
   role?: string;
 }) {
   try {
-    const { email, password, passwordConfirm, site_id, role = 'viewer' } = data;
+    const {
+      email,
+      password,
+      passwordConfirm,
+      accountName,
+      siteDomain,
+      role = 'admin',
+    } = data;
 
-    if (!email || !password || !passwordConfirm || !site_id) {
+    if (!email || !password || !passwordConfirm || !accountName) {
       return NextResponse.json(
         {
           error:
-            'Email, password, password confirmation, and site ID are required',
+            'Email, password, password confirmation, and account name are required',
         },
         { status: 400 }
       );
@@ -126,6 +134,30 @@ async function handleRegister(data: {
     if (password !== passwordConfirm) {
       return NextResponse.json(
         { error: 'Passwords do not match' },
+        { status: 400 }
+      );
+    }
+
+    // Validate account name (alphanumeric and hyphens only, 3-50 chars)
+    if (
+      !/^[a-zA-Z0-9-]+$/.test(accountName) ||
+      accountName.length < 3 ||
+      accountName.length > 50
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Account name must be 3-50 characters, alphanumeric and hyphens only',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate role
+    const validRoles = ['admin', 'editor', 'viewer', 'support'];
+    if (!validRoles.includes(role)) {
+      return NextResponse.json(
+        { error: 'Invalid role specified' },
         { status: 400 }
       );
     }
@@ -147,12 +179,34 @@ async function handleRegister(data: {
         users: { read: false, write: false, delete: false },
         settings: { read: true, write: false },
       },
+      support: {
+        analytics: { read: true, write: false, delete: false },
+        users: { read: true, write: false, delete: false },
+        settings: { read: true, write: false },
+      },
     };
 
     // Create user in PocketBase using admin credentials
     const adminPb = await getAdminPb();
 
-    // Check if user already exists
+    // Check if account name is already taken
+    const existingAccountName = await adminPb
+      .collection('sites')
+      .getList(1, 1, {
+        filter: `code = "${accountName.toLowerCase()}"`,
+      });
+
+    if (existingAccountName.items.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            'Account name is already taken. Please choose a different name.',
+        },
+        { status: 409 }
+      );
+    }
+
+    // Check if user email already exists
     const existingUsers = await adminPb
       .collection('analytics_users')
       .getList(1, 1, {
@@ -161,39 +215,70 @@ async function handleRegister(data: {
 
     if (existingUsers.items.length > 0) {
       return NextResponse.json(
-        { error: 'User already exists' },
-        { status: 400 }
+        { error: 'An account with this email already exists' },
+        { status: 409 }
       );
     }
 
-    const userData = {
-      site_id,
-      email,
-      email_verified: 1,
-      password, // In production, hash this password
-      totp_enabled: 1, // Set to 1 as required
-      totp_secret: 'default',
-      access: { role },
+    // Create the site record first
+    const siteData = {
+      code: accountName.toLowerCase(),
+      cname:
+        siteDomain || `${accountName.toLowerCase()}.pocketwebanalytics.com`,
+      link_domain: siteDomain || null,
       settings: {
-        role,
+        title: siteDomain || accountName,
+        timezone: 'UTC',
+        public: false,
+        data_retention: 730, // days
+        created_by: email,
+      },
+      created_at: new Date().toISOString(),
+      first_hit_at: new Date().toISOString(),
+      received_data: 1, // 1 for true in number type
+      user_defaults: {
+        timezone: 'UTC',
+        date_format: 'Y-m-d',
+        time_format: '24',
+      },
+      state: 'a', // active
+    };
+
+    const site = await adminPb.collection('sites').create(siteData);
+
+    // Create the user record
+    const userData = {
+      email,
+      password,
+      site_id: site.id,
+      email_verified: 1, // 1 for true in number type
+      totp_enabled: 0, // explicit number 0
+      access: {
+        role: role,
+      },
+      settings: {
         permissions:
           defaultPermissions[role as keyof typeof defaultPermissions],
       },
+      login_at: new Date().toISOString(),
       last_report_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     };
 
-    const record = await adminPb.collection('analytics_users').create(userData);
+    const newUser = await adminPb
+      .collection('analytics_users')
+      .create(userData);
 
     return NextResponse.json({
       success: true,
       user: {
-        id: record.id,
-        email: record.email,
-        role: record.access?.role || role,
-        site_id: record.site_id,
-        permissions: record.settings?.permissions || {},
+        id: newUser.id,
+        email: newUser.email,
+        role: newUser.access?.role || role,
+        site_id: newUser.site_id,
+        permissions: newUser.settings?.permissions || {},
       },
+      message: `Account created successfully! Your analytics dashboard is available at https://${accountName.toLowerCase()}.pocketwebanalytics.com`,
     });
   } catch (error: unknown) {
     console.error('Registration error:', error);
@@ -259,9 +344,9 @@ async function handleVerifyToken(data: { token: string }) {
       user: {
         id: user.id,
         email: user.email,
-        role: user.access?.role || 'viewer',
+        role: user.access?.role || user.role || 'viewer', // Handle both old and new format
         site_id: user.site_id,
-        permissions: user.settings?.permissions || {},
+        permissions: user.settings?.permissions || user.permissions || {},
         last_login: user.login_at,
       },
     });

@@ -6,38 +6,50 @@ interface RegisterFormProps {
     email: string;
     password: string;
     passwordConfirm: string;
-    site_id: string;
-    role: string;
+    accountName: string;
+    siteDomain?: string;
+    role?: string;
   }) => Promise<void>;
   isLoading?: boolean;
   error?: string;
-  sites: Array<{ id: string; name: string }>;
 }
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({
   onRegister,
   isLoading,
   error,
-  sites,
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [siteId, setSiteId] = useState('');
-  const [role, setRole] = useState('viewer');
+  const [accountName, setAccountName] = useState('');
+  const [siteDomain, setSiteDomain] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email && password && passwordConfirm && siteId) {
+    if (email && password && passwordConfirm && accountName) {
       await onRegister({
         email,
         password,
         passwordConfirm,
-        site_id: siteId,
-        role,
+        accountName: accountName.toLowerCase().trim(),
+        siteDomain: siteDomain.trim() || undefined,
+        role: 'admin', // Default role for new account creators
       });
     }
   };
+
+  // Validate account name (alphanumeric, hyphens, no spaces)
+  const isValidAccountName = (name: string) => {
+    return (
+      /^[a-zA-Z0-9-]+$/.test(name) && name.length >= 3 && name.length <= 50
+    );
+  };
+
+  const accountNameError =
+    accountName && !isValidAccountName(accountName)
+      ? 'Account name must be 3-50 characters, alphanumeric and hyphens only'
+      : '';
 
   return (
     <Box maxW="md" mx="auto" mt={8}>
@@ -54,7 +66,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         }}
       >
         <Heading size="lg" textAlign="center" mb={6}>
-          Create Account
+          Create Your Analytics Account
         </Heading>
 
         <form onSubmit={handleSubmit}>
@@ -80,33 +92,77 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
             <Box width="full">
               <Text mb={2} fontWeight="medium">
-                Email
+                Account Name *
+              </Text>
+              <Input
+                type="text"
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                placeholder="mysite"
+                required
+              />
+              <Text fontSize="xs" color="gray.500" mt={1}>
+                You will access your analytics at https://
+                {accountName || 'account-name'}.pocketwebanalytics.com
+              </Text>
+              {accountNameError && (
+                <Text fontSize="xs" color="red.500" mt={1}>
+                  {accountNameError}
+                </Text>
+              )}
+            </Box>
+
+            <Box width="full">
+              <Text mb={2} fontWeight="medium">
+                Site Domain{' '}
+                <Text as="span" color="gray.500" fontSize="sm">
+                  (optional)
+                </Text>
+              </Text>
+              <Input
+                type="text"
+                value={siteDomain}
+                onChange={(e) => setSiteDomain(e.target.value)}
+                placeholder="example.com"
+              />
+              <Text fontSize="xs" color="gray.500" mt={1}>
+                Your website&apos;s domain, used for display and linking
+              </Text>
+            </Box>
+
+            <Box width="full">
+              <Text mb={2} fontWeight="medium">
+                Email Address *
               </Text>
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                placeholder="your@email.com"
                 required
               />
+              <Text fontSize="xs" color="gray.500" mt={1}>
+                For password resets and important announcements
+              </Text>
             </Box>
 
             <Box width="full">
               <Text mb={2} fontWeight="medium">
-                Password
+                Password *
               </Text>
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder="At least 8 characters"
                 required
+                minLength={8}
               />
             </Box>
 
             <Box width="full">
               <Text mb={2} fontWeight="medium">
-                Confirm Password
+                Confirm Password *
               </Text>
               <Input
                 type="password"
@@ -117,58 +173,19 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               />
             </Box>
 
-            <Box width="full">
-              <Text mb={2} fontWeight="medium">
-                Site
-              </Text>
-              <select
-                value={siteId}
-                onChange={(e) => setSiteId(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #CBD5E0',
-                  borderRadius: '6px',
-                  backgroundColor: 'white',
-                }}
-              >
-                <option value="">Select a site</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name}
-                  </option>
-                ))}
-              </select>
-            </Box>
-
-            <Box width="full">
-              <Text mb={2} fontWeight="medium">
-                Role
-              </Text>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #CBD5E0',
-                  borderRadius: '6px',
-                  backgroundColor: 'white',
-                }}
-              >
-                <option value="viewer">Viewer</option>
-                <option value="editor">Editor</option>
-                <option value="admin">Admin</option>
-              </select>
-            </Box>
-
             <Button
               type="submit"
               colorScheme="blue"
               size="lg"
               width="full"
               loading={isLoading}
+              disabled={
+                !!accountNameError ||
+                !accountName ||
+                !email ||
+                !password ||
+                !passwordConfirm
+              }
             >
               {isLoading ? 'Creating Account...' : 'Create Account'}
             </Button>

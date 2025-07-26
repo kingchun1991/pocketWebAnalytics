@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import PocketBase from 'pocketbase';
 
+interface PocketBaseError {
+  isAbort?: boolean;
+  code?: number;
+  message?: string;
+}
+
 const pb = new PocketBase(
   process.env.POCKETBASE_URL || 'http://127.0.0.1:8090'
 );
@@ -25,6 +31,38 @@ export async function GET(request: NextRequest) {
         process.env.POCKETBASE_ADMIN_PASSWORD || ''
       );
 
+    // Check user authorization
+    const authHeader = request.headers.get('authorization');
+    let currentUser = null;
+    let userRole = 'viewer';
+    let accessibleSiteIds: string[] = [];
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const [userId] = Buffer.from(token, 'base64').toString().split(':');
+
+        currentUser = await pb.collection('analytics_users').getOne(userId);
+        userRole = currentUser.access?.role || currentUser.role || 'viewer'; // Handle both old and new format
+
+        // Set accessible sites based on user role
+        if (userRole === 'admin' || userRole === 'support') {
+          // Admin/support can access all sites
+          const allSites = await pb.collection('sites').getFullList({
+            fields: 'id',
+            filter: 'state = "a"',
+          });
+          accessibleSiteIds = allSites.map((site: { id: string }) => site.id);
+        } else {
+          // Other users can only access their assigned site
+          accessibleSiteIds = [currentUser.site_id];
+        }
+      } catch (error) {
+        console.error('Token validation error:', error);
+        // Continue with empty access if token is invalid
+      }
+    }
+
     const { searchParams } = new URL(request.url);
     const query: StatsQuery = {
       startDate: searchParams.get('startDate') || undefined,
@@ -35,6 +73,26 @@ export async function GET(request: NextRequest) {
       limit: searchParams.get('limit') || undefined,
       realtime: searchParams.get('realtime') || undefined,
     };
+
+    // Validate site access
+    let targetSiteId = query.site;
+    if (!targetSiteId && currentUser) {
+      // Default to user's site if no site specified
+      targetSiteId =
+        userRole === 'admin' || userRole === 'support'
+          ? accessibleSiteIds[0] // Admin/support default to first available site
+          : currentUser.site_id; // Others default to their site
+    }
+
+    if (targetSiteId && !accessibleSiteIds.includes(targetSiteId)) {
+      return NextResponse.json(
+        { error: 'Access denied to this site' },
+        { status: 403 }
+      );
+    }
+
+    // Update query with validated site
+    query.site = targetSiteId;
 
     // Check if we should use aggregation tables for better performance
     const useAggregation = searchParams.get('useAggregation') !== 'false';
@@ -76,8 +134,38 @@ export async function GET(request: NextRequest) {
       console.log('📊 Using real-time data from hits table');
       return await getRealTimeStats(query, startDate, endDate, sampleSize);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Dashboard API error:', error);
+
+    // Handle PocketBase auto-cancellation error
+    const err = error as PocketBaseError;
+    if (
+      err?.isAbort ||
+      err?.code === 20 ||
+      err?.message?.includes('autocancelled')
+    ) {
+      console.log('🔄 Request was cancelled, returning empty data');
+      return NextResponse.json({
+        summary: {
+          totalHits: 0,
+          uniqueVisitors: 0,
+          sessions: 0,
+          firstVisits: 0,
+          bounceRate: '0%',
+        },
+        topPages: [],
+        topReferrers: [],
+        topBrowsers: [],
+        topSystems: [],
+        chartData: [],
+        metadata: {
+          period: 'No data - request cancelled',
+          dataSource: 'cancelled',
+          sampleSize: 0,
+        },
+      });
+    }
+
     return NextResponse.json(
       {
         error: 'Failed to fetch analytics data',
