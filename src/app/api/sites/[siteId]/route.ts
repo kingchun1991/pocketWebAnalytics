@@ -34,7 +34,7 @@ async function getCurrentUser(token: string) {
 // GET /api/sites/[siteId] - Get specific site info
 export async function GET(
   request: NextRequest,
-  { params }: { params: { siteId: string } }
+  { params }: { params: Promise<{ siteId: string }> }
 ) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -44,7 +44,7 @@ export async function GET(
 
     const token = authHeader.substring(7);
     const user = await getCurrentUser(token);
-    const { siteId } = params;
+    const { siteId } = await params;
 
     const userRole = user.access?.role || 'viewer';
     const pb = await getAdminPb();
